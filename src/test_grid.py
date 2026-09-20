@@ -1,7 +1,14 @@
 from grid import Grid
 
 
+
 grid = Grid("../data/map.json")
+
+
+
+print("Rows:", grid.rows)
+
+print("Columns:", grid.cols)
 
 
 print("Start:", grid.start)
@@ -9,13 +16,18 @@ print("Start:", grid.start)
 print("Exit:", grid.exit)
 
 
+
+print("\nNeighbours of start:")
+
+
 print(
-    "Neighbors of start:",
-    grid.get_neighbors(grid.start)
+    grid.get_neighbors(
+        grid.start
+    )
 )
 
 
 print(
-    "Cost of smoke zone:",
-    grid.get_cost((1,4))
+    "\nCost:",
+    grid.get_cost((0,1))
 )

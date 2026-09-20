@@ -1,6 +1,6 @@
 import heapq
 
-from heuristic import manhattan_distance
+from .heuristic import manhattan_distance
 
 
 def a_star(grid):

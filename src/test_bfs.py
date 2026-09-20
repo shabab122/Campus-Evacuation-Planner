@@ -1,5 +1,5 @@
-from grid import Grid
-from bfs import bfs
+from src.grid import Grid
+from src.bfs import bfs
 
 
 
