@@ -1,271 +1,271 @@
-import pygame
+# import pygame
 
 
-# =========================
-# Configuration
-# =========================
+# # =========================
+# # Configuration
+# # =========================
 
-CELL_SIZE = 80
+# CELL_SIZE = 80
 
-WIDTH_PADDING = 20
+# WIDTH_PADDING = 20
 
 
-# Colors
+# # Colors
 
-WHITE = (240, 240, 240)
-BLACK = (0, 0, 0)
+# WHITE = (240, 240, 240)
+# BLACK = (0, 0, 0)
 
-GREEN = (0, 200, 0)
-RED = (220, 0, 0)
+# GREEN = (0, 200, 0)
+# RED = (220, 0, 0)
 
-BLUE = (50, 100, 255)
+# BLUE = (50, 100, 255)
 
-GRAY = (120, 120, 120)
+# GRAY = (120, 120, 120)
 
-YELLOW = (255, 220, 0)
+# YELLOW = (255, 220, 0)
 
 
 
-# =========================
-# Draw Grid
-# =========================
+# # =========================
+# # Draw Grid
+# # =========================
 
-def draw_grid(grid, path):
+# def draw_grid(grid, path):
 
-    pygame.init()
+#     pygame.init()
 
 
-    screen_width = grid.cols * CELL_SIZE
-    screen_height = grid.rows * CELL_SIZE
+#     screen_width = grid.cols * CELL_SIZE
+#     screen_height = grid.rows * CELL_SIZE
 
 
-    screen = pygame.display.set_mode(
-        (
-            screen_width,
-            screen_height
-        )
-    )
+#     screen = pygame.display.set_mode(
+#         (
+#             screen_width,
+#             screen_height
+#         )
+#     )
 
 
-    pygame.display.set_caption(
-        "Campus Evacuation Planner"
-    )
+#     pygame.display.set_caption(
+#         "Campus Evacuation Planner"
+#     )
 
 
 
-    clock = pygame.time.Clock()
+#     clock = pygame.time.Clock()
 
 
-    running = True
+#     running = True
 
 
 
-    while running:
+#     while running:
 
 
-        # ---------------------
-        # Event Handling
-        # ---------------------
+#         # ---------------------
+#         # Event Handling
+#         # ---------------------
 
-        for event in pygame.event.get():
+#         for event in pygame.event.get():
 
-            if event.type == pygame.QUIT:
+#             if event.type == pygame.QUIT:
 
-                running = False
+#                 running = False
 
 
 
-        screen.fill(WHITE)
+#         screen.fill(WHITE)
 
 
 
-        # ---------------------
-        # Draw Cells
-        # ---------------------
+#         # ---------------------
+#         # Draw Cells
+#         # ---------------------
 
-        for row in range(grid.rows):
+#         for row in range(grid.rows):
 
-            for col in range(grid.cols):
+#             for col in range(grid.cols):
 
 
-                rect = pygame.Rect(
+#                 rect = pygame.Rect(
 
-                    col * CELL_SIZE,
+#                     col * CELL_SIZE,
 
-                    row * CELL_SIZE,
+#                     row * CELL_SIZE,
 
-                    CELL_SIZE,
+#                     CELL_SIZE,
 
-                    CELL_SIZE
+#                     CELL_SIZE
 
-                )
+#                 )
 
 
-                cell_value = grid.grid[row][col]
+#                 cell_value = grid.grid[row][col]
 
 
 
-                # Wall
+#                 # Wall
 
-                if cell_value == -1:
+#                 if cell_value == -1:
 
-                    color = BLACK
+#                     color = BLACK
 
 
-                else:
+#                 else:
 
-                    color = WHITE
+#                     color = WHITE
 
 
 
-                pygame.draw.rect(
+#                 pygame.draw.rect(
 
-                    screen,
+#                     screen,
 
-                    color,
+#                     color,
 
-                    rect
+#                     rect
 
-                )
+#                 )
 
 
 
-                # Grid border
+#                 # Grid border
 
-                pygame.draw.rect(
+#                 pygame.draw.rect(
 
-                    screen,
+#                     screen,
 
-                    GRAY,
+#                     GRAY,
 
-                    rect,
+#                     rect,
 
-                    2
+#                     2
 
-                )
+#                 )
 
 
 
-        # ---------------------
-        # Draw Path
-        # ---------------------
+#         # ---------------------
+#         # Draw Path
+#         # ---------------------
 
-        if path:
+#         if path:
 
 
-            for position in path:
+#             for position in path:
 
 
-                row, col = position
+#                 row, col = position
 
 
 
-                rect = pygame.Rect(
+#                 rect = pygame.Rect(
 
-                    col * CELL_SIZE,
+#                     col * CELL_SIZE,
 
-                    row * CELL_SIZE,
+#                     row * CELL_SIZE,
 
-                    CELL_SIZE,
+#                     CELL_SIZE,
 
-                    CELL_SIZE
+#                     CELL_SIZE
 
-                )
+#                 )
 
 
-                # Path highlight
+#                 # Path highlight
 
-                pygame.draw.rect(
+#                 pygame.draw.rect(
 
-                    screen,
+#                     screen,
 
-                    BLUE,
+#                     BLUE,
 
-                    rect.inflate(
-                        -20,
-                        -20
-                    )
+#                     rect.inflate(
+#                         -20,
+#                         -20
+#                     )
 
-                )
+#                 )
 
 
 
-        # ---------------------
-        # Draw Start
-        # ---------------------
+#         # ---------------------
+#         # Draw Start
+#         # ---------------------
 
-        start_row, start_col = grid.start
+#         start_row, start_col = grid.start
 
 
-        start_rect = pygame.Rect(
+#         start_rect = pygame.Rect(
 
-            start_col * CELL_SIZE,
+#             start_col * CELL_SIZE,
 
-            start_row * CELL_SIZE,
+#             start_row * CELL_SIZE,
 
-            CELL_SIZE,
+#             CELL_SIZE,
 
-            CELL_SIZE
+#             CELL_SIZE
 
-        )
+#         )
 
 
-        pygame.draw.rect(
+#         pygame.draw.rect(
 
-            screen,
+#             screen,
 
-            GREEN,
+#             GREEN,
 
-            start_rect.inflate(
-                -15,
-                -15
-            )
+#             start_rect.inflate(
+#                 -15,
+#                 -15
+#             )
 
-        )
+#         )
 
 
 
-        # ---------------------
-        # Draw Exit
-        # ---------------------
+#         # ---------------------
+#         # Draw Exit
+#         # ---------------------
 
-        exit_row, exit_col = grid.exit
+#         exit_row, exit_col = grid.exit
 
 
-        exit_rect = pygame.Rect(
+#         exit_rect = pygame.Rect(
 
-            exit_col * CELL_SIZE,
+#             exit_col * CELL_SIZE,
 
-            exit_row * CELL_SIZE,
+#             exit_row * CELL_SIZE,
 
-            CELL_SIZE,
+#             CELL_SIZE,
 
-            CELL_SIZE
+#             CELL_SIZE
 
-        )
+#         )
 
 
-        pygame.draw.rect(
+#         pygame.draw.rect(
 
-            screen,
+#             screen,
 
-            RED,
+#             RED,
 
-            exit_rect.inflate(
-                -15,
-                -15
-            )
+#             exit_rect.inflate(
+#                 -15,
+#                 -15
+#             )
 
-        )
+#         )
 
 
 
-        pygame.display.update()
+#         pygame.display.update()
 
 
 
-        clock.tick(60)
+#         clock.tick(60)
 
 
 
-    pygame.quit()
+#     pygame.quit()

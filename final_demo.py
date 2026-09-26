@@ -93,6 +93,11 @@ def main():
         astar_path
     )
 
+#     draw_grid(
+#     grid,
+#     bfs_path
+# )
+
 
 
 if __name__ == "__main__":

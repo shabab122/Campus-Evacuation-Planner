@@ -1,16 +1,9 @@
-def calculate_path_cost(grid, path):
+from __future__ import annotations
 
-    total_cost = 0
-
-
-    for position in path:
-
-        # Start position has no movement cost
-        if position == grid.start:
-            continue
+from .grid import Grid
 
 
-        total_cost += grid.get_cost(position)
-
-
-    return total_cost
+def calculate_path_cost(grid: Grid, path: list[tuple[int, int]] | None) -> int | None:
+    if not path:
+        return None
+    return sum(grid.get_cost(position) for position in path[1:])
