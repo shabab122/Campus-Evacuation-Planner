@@ -1,189 +1,68 @@
+from __future__ import annotations
+
 import heapq
+from itertools import count
 
-from .heuristic import manhattan_distance
+from .grid import Grid
+from .heuristic import nearest_exit_distance
 
 
-def a_star(grid):
+def a_star(grid: Grid, *, return_trace: bool = False):
+    """Find the lowest weighted-cost route from start to any available exit.
 
+    The Week-2 UI can request ``return_trace=True`` to animate the exact order
+    in which nodes are expanded. The default return shape is kept compatible
+    with the Week-1/early Week-2 code.
+    """
     start = grid.start
-    goal = grid.exit
+    goals = set(grid.exits)
+    sequence = count()
 
-
-    # Priority Queue
-    # Format: (f_score, node)
-    open_set = []
-
+    open_set: list[tuple[int, int, int, tuple[int, int]]] = []
     heapq.heappush(
         open_set,
-        (0, start)
+        (nearest_exit_distance(start, grid.exits), 0, next(sequence), start),
     )
 
-
-    # Store parent node
-    came_from = {}
-
-
-    # g(n) cost from start
-    g_score = {
-
-        start: 0
-
-    }
-
-
-    # Count explored nodes
-    explored_nodes = 0
-
-
+    came_from: dict[tuple[int, int], tuple[int, int]] = {}
+    g_score = {start: 0}
+    exploration_order: list[tuple[int, int]] = []
 
     while open_set:
+        _, current_cost, _, current = heapq.heappop(open_set)
+        if current_cost != g_score.get(current):
+            continue
 
-
-        # Node with lowest f(n)
-        current = heapq.heappop(open_set)[1]
-
-
-        explored_nodes += 1
-
-
-
-        # Goal reached
-        if current == goal:
-
-
-            path = reconstruct_path(
-                came_from,
-                current
-            )
-
-
-            total_cost = g_score[current]
-
-
-            return (
-                path,
-                total_cost,
-                explored_nodes
-            )
-
-
-
-        # Explore neighbours
+        exploration_order.append(current)
+        if current in goals:
+            path = reconstruct_path(came_from, current)
+            return _result(path, current_cost, exploration_order, return_trace)
 
         for neighbor in grid.get_neighbors(current):
-
-
-            # Calculate new g(n)
-
-            movement_cost = grid.get_cost(neighbor)
-
-
-            new_cost = (
-
-                g_score[current]
-
-                +
-
-                movement_cost
-
-            )
-
-
-
-            # If this path is better
-
-            if (
-
-                neighbor not in g_score
-
-                or
-
-                new_cost < g_score[neighbor]
-
-            ):
-
-
-                # Update cost
-
+            new_cost = current_cost + grid.get_cost(neighbor)
+            if new_cost < g_score.get(neighbor, float("inf")):
                 g_score[neighbor] = new_cost
-
-
-
-                # Calculate f(n)
-
-                h_score = manhattan_distance(
-
-                    neighbor,
-
-                    goal
-
-                )
-
-
-                f_score = (
-
-                    new_cost
-
-                    +
-
-                    h_score
-
-                )
-
-
-
-                # Add to priority queue
-
-                heapq.heappush(
-
-                    open_set,
-
-                    (
-
-                        f_score,
-
-                        neighbor
-
-                    )
-
-                )
-
-
-
-                # Store parent
-
                 came_from[neighbor] = current
+                priority = new_cost + nearest_exit_distance(neighbor, grid.exits)
+                heapq.heappush(
+                    open_set,
+                    (priority, new_cost, next(sequence), neighbor),
+                )
+
+    return _result(None, None, exploration_order, return_trace)
 
 
-
-    # No route found
-
-    return (
-        None,
-        None,
-        explored_nodes
-    )
-
-
-
+def _result(path, cost, exploration_order, return_trace):
+    explored_nodes = len(exploration_order)
+    if return_trace:
+        return path, cost, explored_nodes, exploration_order
+    return path, cost, explored_nodes
 
 
 def reconstruct_path(came_from, current):
-
-
     path = [current]
-
-
     while current in came_from:
-
-
         current = came_from[current]
-
         path.append(current)
-
-
-
     path.reverse()
-
-
     return path
