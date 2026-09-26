@@ -1,0 +1,17 @@
+{
+  "Normal conditions": {
+    "crowd": [[3, 1]],
+    "smoke": [],
+    "fire": []
+  },
+  "Smoke near north exit": {
+    "crowd": [[0, 1]],
+    "smoke": [[0, 2], [0, 3]],
+    "fire": []
+  },
+  "North corridor blocked": {
+    "crowd": [[3, 1]],
+    "smoke": [[0, 2]],
+    "fire": [[0, 3]]
+  }
+}
