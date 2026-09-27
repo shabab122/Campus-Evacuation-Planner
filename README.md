@@ -1,6 +1,5 @@
-## Campus Emergency Evacuation Route Planner — Week 2 ##
-
-This Week-2 build extends the completed Week-1 project (grid map + A* + BFS + basic visualization) into a Streamlit-based interactive simulation.
+# Campus Emergency Evacuation Route Planner — Week 2
+This Week-2 build extends the completed Week-1 project (grid map + A\* + BFS + basic visualization) into a Streamlit-based interactive simulation.
 
 ## Week-2 scope
 
@@ -10,7 +9,7 @@ This Week-2 build extends the completed Week-1 project (grid map + A* + BFS + ba
   - Crowd = 3
   - Smoke = 8
   - Fire and walls = blocked
-- Algorithms: A*, BFS, DFS, Uniform Cost Search (UCS), Greedy Best First Search
+- Algorithms: A\*, BFS, DFS, Uniform Cost Search (UCS), Greedy Best First Search
 - Live node-expansion animation for every algorithm
 - Step-by-step evacuation movement after a route is found
 - Per-algorithm metrics stored only after that algorithm actually runs

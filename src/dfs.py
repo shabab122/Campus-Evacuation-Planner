@@ -1,27 +1,23 @@
-from collections import deque
-
-
-def bfs(grid, *, return_trace: bool = False):
-    """Breadth-first search for the nearest exit by number of grid steps."""
+def dfs(grid, *, return_trace: bool = False):
     start = grid.start
     goals = set(grid.exits)
-    queue = deque([start])
+    stack = [start]
     visited = {start}
     came_from = {}
     exploration_order = []
 
-    while queue:
-        current = queue.popleft()
+    while stack:
+        current = stack.pop()
         exploration_order.append(current)
         if current in goals:
             path = reconstruct_path(came_from, current)
             return _result(path, exploration_order, return_trace)
 
-        for neighbor in grid.get_neighbors(current):
+        for neighbor in reversed(grid.get_neighbors(current)):
             if neighbor not in visited:
                 visited.add(neighbor)
-                queue.append(neighbor)
                 came_from[neighbor] = current
+                stack.append(neighbor)
 
     return _result(None, exploration_order, return_trace)
 
