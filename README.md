@@ -1,4 +1,4 @@
-# Campus Emergency Evacuation Route Planner — Week 2
+## Campus Emergency Evacuation Route Planner — Week 2 ##
 
 This Week-2 build extends the completed Week-1 project (grid map + A* + BFS + basic visualization) into a Streamlit-based interactive simulation.
 
