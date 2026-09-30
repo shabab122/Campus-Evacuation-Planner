@@ -6,8 +6,9 @@ from pathlib import Path
 from .grid import Coord, Grid
 
 
-DEFAULT_MAP_PATH = Path("data/map.json")
-DEFAULT_SCENARIOS_PATH = Path("data/scenarios.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_MAP_PATH = PROJECT_ROOT / "data/map.json"
+DEFAULT_SCENARIOS_PATH = PROJECT_ROOT / "data/scenarios.json"
 
 
 def load_scenarios(file_path: str | Path = DEFAULT_SCENARIOS_PATH) -> dict[str, dict]:
@@ -30,6 +31,7 @@ def build_grid(
     extra_crowd: list[Coord] | None = None,
     extra_smoke: list[Coord] | None = None,
     extra_fire: list[Coord] | None = None,
+    extra_blocked: list[Coord] | None = None,
 ) -> Grid:
     scenarios = load_scenarios(scenarios_path)
     if scenario_name not in scenarios:
@@ -39,6 +41,7 @@ def build_grid(
         crowd=extra_crowd or [],
         smoke=extra_smoke or [],
         fire=extra_fire or [],
+        blocked=extra_blocked or [],
     )
     return grid
 

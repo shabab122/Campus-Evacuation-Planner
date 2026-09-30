@@ -10,14 +10,6 @@ from src.scenarios import build_grid, load_locations, load_scenarios, parse_coor
 from src.visualization import draw_grid
 
 
-st.set_page_config(
-    page_title="Campus Emergency Evacuation Planner",
-    page_icon="🚨",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-
 APP_CSS = """
 <style>
     .stApp {
@@ -94,6 +86,7 @@ def scenario_signature(
     crowd_raw: str,
     smoke_raw: str,
     fire_raw: str,
+    blocked_raw: str = "",
 ):
     return (
         scenario_name,
@@ -101,6 +94,7 @@ def scenario_signature(
         crowd_raw.strip(),
         smoke_raw.strip(),
         fire_raw.strip(),
+        blocked_raw.strip(),
     )
 
 
@@ -122,49 +116,81 @@ def render_animation(
     progress_placeholder,
     delay_seconds,
 ):
-    trace = result.get("exploration_order", [])
     path = result.get("path", [])
-
-    total_search_frames = max(len(trace), 1)
-    for index, current in enumerate(trace, start=1):
+    if delay_seconds == 0:
+        return  # Instant playback: the final frame is rendered after the rerun.
+    stages = result["stages"]
+    total_frames = max(result["nodes_explored"] + len(path), 1)
+    completed_frames = 0
+    for stage in stages:
+        is_fallback = stage["phase"] == "central_stairs"
+        stage_name = "Central stairs search" if is_fallback else "Emergency exit search"
+        if is_fallback:
+            status_placeholder.warning(
+                "All emergency exits are unreachable. Central stairs activated; replanning from the start."
+            )
+        trace = stage.get("exploration_order", [])
+        # Also reveal blocked stairs when the fallback has no searchable goal.
         fig = draw_grid(
             grid,
-            explored=trace[:index],
-            current=current,
-            title=f"{algorithm_name} · Live search",
+            stairs_visible=is_fallback,
+            title=f"{algorithm_name} · {stage_name}",
         )
         frame_placeholder.pyplot(fig, use_container_width=True, clear_figure=True)
         plt.close(fig)
-        progress_placeholder.progress(index / total_search_frames)
-        status_placeholder.info(
-            f"Searching… expanded node {current} · {index}/{len(trace)} explored"
-        )
-        time.sleep(delay_seconds)
+        if is_fallback:
+            time.sleep(delay_seconds)
+        for index, current in enumerate(trace, start=1):
+            fig = draw_grid(
+                grid, explored=trace[:index], current=current,
+                stairs_visible=is_fallback,
+                title=f"{algorithm_name} · {stage_name}",
+            )
+            frame_placeholder.pyplot(fig, use_container_width=True, clear_figure=True)
+            plt.close(fig)
+            completed_frames += 1
+            progress_placeholder.progress(completed_frames / total_frames)
+            status_placeholder.info(
+                f"{stage_name} · node {current} · {index}/{len(trace)} expanded"
+            )
+            time.sleep(delay_seconds)
 
     if not path:
-        status_placeholder.error(f"{algorithm_name}: no reachable exit was found.")
+        status_placeholder.error(result["message"])
+        progress_placeholder.progress(1.0)
         return
 
+    destination_label = "central stairs" if result["fallback_used"] else "emergency exit"
+    final_trace = stages[-1].get("exploration_order", [])
     for index, traveler in enumerate(path, start=1):
         partial_path = path[:index]
         fig = draw_grid(
             grid,
             path=partial_path,
-            explored=trace,
+            explored=final_trace,
             traveler=traveler,
-            title=f"{algorithm_name} · Evacuation movement",
+            stairs_visible=result["stairs_visible"],
+            risk_level=result["risk_level"],
+            title=f"{algorithm_name} · Moving to {destination_label}",
         )
         frame_placeholder.pyplot(fig, use_container_width=True, clear_figure=True)
         plt.close(fig)
-        progress_placeholder.progress(index / len(path))
-        status_placeholder.success(
-            f"Route found. Evacuating… position {traveler} · step {max(index - 1, 0)}/{max(len(path) - 1, 0)}"
+        completed_frames += 1
+        progress_placeholder.progress(completed_frames / total_frames)
+        movement_message = (
+            f"Moving to {destination_label} · position {traveler} · "
+            f"step {max(index - 1, 0)}/{max(len(path) - 1, 0)}"
         )
+        if result["risk_level"] == "risky":
+            status_placeholder.warning("Risky route: " + movement_message)
+        else:
+            status_placeholder.success(movement_message)
         time.sleep(max(delay_seconds * 1.35, 0.03))
 
-    status_placeholder.success(
-        f"{algorithm_name} completed · exit {result['selected_exit']} · cost {result['route_cost']}"
-    )
+    if result["risk_level"] == "risky":
+        status_placeholder.warning(result["message"])
+    else:
+        status_placeholder.success(result["message"])
 
 
 def execute_with_animation(
@@ -195,7 +221,7 @@ def show_result_metrics(result) -> None:
     st.markdown(f"### {result['algorithm']} result")
     first, second, third = st.columns(3)
     first.metric("Route found", "YES" if result["route_found"] else "NO")
-    second.metric("Selected exit", str(result["selected_exit"]) if result["selected_exit"] else "—")
+    second.metric("Destination", "Central stairs" if result["destination_type"] == "central_stairs" else "Emergency exit" if result["route_found"] else "—")
     third.metric("Route cost", result["route_cost"] if result["route_cost"] is not None else "—")
 
     fourth, fifth, sixth = st.columns(3)
@@ -203,20 +229,40 @@ def show_result_metrics(result) -> None:
     fifth.metric("Nodes explored", result["nodes_explored"])
     sixth.metric("Execution", f"{result['execution_ms']:.4f} ms")
 
+    if result["fallback_used"]:
+        st.warning("Emergency exits are unreachable. Central-stairs fallback activated.")
+    if result["risk_level"] == "risky":
+        st.warning("RISKY ROUTE · " + result["message"])
+    elif result["route_found"]:
+        st.success("SAFE (MODEL) · No smoke/crowd or elevated-cost cells on this route.")
+    else:
+        st.error(result["message"])
     if result["path"]:
+        st.write(f"Selected destination: **{result['selected_destination']}**")
+        if result["destination_type"] == "central_stairs":
+            st.caption("This route reaches the staircase on this floor; onward evacuation is not modelled.")
         with st.expander("Route coordinates", expanded=False):
             st.code(" → ".join(str(node) for node in result["path"]))
-    else:
-        st.warning("No exit is reachable for this algorithm in the current scenario.")
+    with st.expander("Search stages", expanded=False):
+        for stage in result["stages"]:
+            label = "Emergency exits" if stage["phase"] == "emergency_exits" else "Central stairs"
+            outcome = "route found" if stage["route_found"] else "no reachable target"
+            st.write(f"**{label}**: {outcome} · {stage['nodes_explored']} expanded · {stage['execution_ms']:.4f} ms")
 
 
 def main() -> None:
+    st.set_page_config(
+        page_title="Campus Emergency Evacuation Planner",
+        page_icon="🚨",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
     st.markdown(APP_CSS, unsafe_allow_html=True)
     st.markdown(
         """
         <div class="hero">
             <h1>Campus Emergency Evacuation Route Planner</h1>
-            <p>Week 2 live search simulation · weighted hazards · multiple exits · five search algorithms</p>
+            <p>Week 3 · emergency exits first · central-stairs fallback · hazard-aware route status</p>
         </div>
         """,
         unsafe_allow_html=True,
@@ -228,11 +274,23 @@ def main() -> None:
     with st.sidebar:
         st.header("Evacuation Controls")
         scenario_name = st.selectbox("Emergency scenario", list(scenarios))
-        location_name = st.selectbox("Starting location", list(locations))
+        occupied_cells = {
+            tuple(position)
+            for label in ("crowd", "smoke", "fire", "blocked")
+            for position in scenarios[scenario_name].get(label, [])
+        }
+        available_locations = [name for name, position in locations.items() if position not in occupied_cells]
+        if not available_locations:
+            st.error("No clear named starting location is available in this scenario.")
+            st.stop()
+        location_name = st.selectbox("Starting location", available_locations)
+        excluded = [name for name in locations if name not in available_locations]
+        if excluded:
+            st.caption("Unavailable starting locations in this scenario: " + ", ".join(excluded))
         selected_algorithm = st.selectbox("Algorithm", list(ALGORITHMS))
         animation_speed = st.select_slider(
             "Animation speed",
-            options=["Slow", "Normal", "Fast"],
+            options=["Slow", "Normal", "Fast", "Instant"],
             value="Normal",
         )
 
@@ -240,7 +298,9 @@ def main() -> None:
             extra_crowd_raw = st.text_input("Crowd cells", placeholder="3,2; 4,3")
             extra_smoke_raw = st.text_input("Smoke cells", placeholder="0,2; 0,3")
             extra_fire_raw = st.text_input("Fire cells", placeholder="0,3")
+            extra_blocked_raw = st.text_input("Blocked cells", placeholder="0,5; 5,5")
             st.caption("Format: row,column. Separate multiple cells with semicolons.")
+            st.caption("Emergency exits and central stairs may be fire/blocked. The starting cell must remain clear.")
 
         run_selected = st.button(
             "▶ Run Selected Algorithm",
@@ -256,10 +316,17 @@ def main() -> None:
         st.divider()
         st.markdown("**Movement model**")
         st.caption("Normal = 1 · Crowd = 3 · Smoke = 8 · Fire/Wall = blocked")
+        st.markdown("**Fallback policy**")
+        st.caption("Use an emergency exit if reachable. Reveal central stairs only when all exit routes fail.")
 
-    delay_lookup = {"Slow": 0.22, "Normal": 0.11, "Fast": 0.045}
+    delay_lookup = {"Slow": 0.22, "Normal": 0.11, "Fast": 0.045, "Instant": 0.0}
     delay_seconds = delay_lookup[animation_speed]
 
+    key = scenario_signature(
+        scenario_name, location_name, extra_crowd_raw, extra_smoke_raw,
+        extra_fire_raw, extra_blocked_raw,
+    )
+    reset_for_scenario(key)
     try:
         grid = build_grid(
             scenario_name,
@@ -267,19 +334,11 @@ def main() -> None:
             extra_crowd=parse_coordinates(extra_crowd_raw),
             extra_smoke=parse_coordinates(extra_smoke_raw),
             extra_fire=parse_coordinates(extra_fire_raw),
+            extra_blocked=parse_coordinates(extra_blocked_raw),
         )
     except ValueError as error:
         st.error(str(error))
         st.stop()
-
-    key = scenario_signature(
-        scenario_name,
-        location_name,
-        extra_crowd_raw,
-        extra_smoke_raw,
-        extra_fire_raw,
-    )
-    reset_for_scenario(key)
 
     if reset_results:
         st.session_state.completed_results = {}
@@ -325,7 +384,7 @@ def main() -> None:
         if not missing:
             status_placeholder.success("All algorithms are already complete for this scenario.")
         else:
-            batch_delay = max(delay_seconds * 0.55, 0.025)
+            batch_delay = max(delay_seconds * 0.55, 0.025) if delay_seconds else 0.0
             for index, algorithm_name in enumerate(missing, start=1):
                 status_placeholder.info(
                     f"Comparison run {index}/{len(missing)} · starting {algorithm_name}"
@@ -353,9 +412,11 @@ def main() -> None:
         final_fig = draw_grid(
             grid,
             path=result_to_show["path"],
-            explored=result_to_show.get("exploration_order", []),
-            traveler=result_to_show["selected_exit"] if result_to_show["route_found"] else None,
-            title=f"{result_to_show['algorithm']} · Completed route",
+            explored=result_to_show["stages"][-1].get("exploration_order", []),
+            traveler=result_to_show["selected_destination"] if result_to_show["route_found"] else None,
+            stairs_visible=result_to_show["stairs_visible"],
+            risk_level=result_to_show["risk_level"],
+            title=f"{result_to_show['algorithm']} · {'Central stairs fallback' if result_to_show['fallback_used'] else 'Emergency exit route'}",
         )
     else:
         final_fig = draw_grid(grid, title="Campus map · Ready to simulate")
@@ -366,7 +427,8 @@ def main() -> None:
         st.markdown("### Live simulation")
         st.caption(
             "Blue cells show nodes already explored. The yellow outline is the current expansion. "
-            "After a route is found, the evacuee marker moves step-by-step to the selected exit."
+            "If exit search fails, CS appears and the same algorithm searches for central stairs. "
+            "Movement starts only after planning. Orange routes contain modelled hazards."
         )
         if result_to_show:
             show_result_metrics(result_to_show)
@@ -375,7 +437,13 @@ def main() -> None:
 
         st.markdown("#### Scenario")
         st.write(f"**{scenario_name}** · start: **{location_name} {grid.start}**")
-        st.write(f"Available exits: **{', '.join(str(exit_) for exit_ in grid.exits)}**")
+        exit_summary = ", ".join(
+            f"E{index} {exit_}" + (" [FIRE/BLOCKED]" if grid.is_blocked(exit_) else "")
+            for index, exit_ in enumerate(grid.exits, start=1)
+        )
+        st.write(f"Emergency exits: **{exit_summary}**")
+        if result_to_show and result_to_show["stairs_visible"]:
+            st.write(f"Central stairs: **{grid.central_stairs}** · fallback active")
         st.caption("Academic simulation only; this synthetic map is not a certified emergency-navigation system.")
 
     st.divider()
@@ -398,7 +466,11 @@ def main() -> None:
         chart_left, chart_right = st.columns(2, gap="large")
         with chart_left:
             st.markdown("#### Route cost")
-            st.bar_chart(table.set_index("Algorithm")[["Route Cost"]].fillna(0))
+            routes = table[table["Route Found"] == "Yes"]
+            if routes.empty:
+                st.info("No traversable routes; route cost is unavailable.")
+            else:
+                st.bar_chart(routes.set_index("Algorithm")[["Route Cost"]])
         with chart_right:
             st.markdown("#### Search effort")
             st.bar_chart(table.set_index("Algorithm")[["Nodes Explored"]].fillna(0))
@@ -406,7 +478,7 @@ def main() -> None:
         st.download_button(
             "Download comparison CSV",
             data=table.to_csv(index=False).encode("utf-8"),
-            file_name="week2_algorithm_comparison.csv",
+            file_name="evacuation_algorithm_comparison.csv",
             mime="text/csv",
             use_container_width=True,
         )
