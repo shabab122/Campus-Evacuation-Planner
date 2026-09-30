@@ -10,10 +10,13 @@ from matplotlib.patches import Circle, Patch, Rectangle
 CELL_COLORS = {
     "normal": "#F8FAFC",
     "wall": "#1F2937",
+    "blocked": "#475569",
     "crowd": "#F59E0B",
     "smoke": "#94A3B8",
     "fire": "#DC2626",
     "path": "#2563EB",
+    "risky_path": "#F97316",
+    "stairs": "#0369A1",
     "start": "#7C3AED",
     "exit": "#16A34A",
     "explored": "#38BDF8",
@@ -29,6 +32,8 @@ def draw_grid(
     explored: Iterable[tuple[int, int]] | None = None,
     current: tuple[int, int] | None = None,
     traveler: tuple[int, int] | None = None,
+    stairs_visible: bool = False,
+    risk_level: str | None = None,
     title: str = "Campus Evacuation Map",
 ):
     """Render a presentation-ready evacuation grid.
@@ -38,6 +43,7 @@ def draw_grid(
     """
     path = list(path or [])
     explored_set = set(explored or [])
+    route_color = CELL_COLORS["risky_path"] if risk_level == "risky" else CELL_COLORS["path"]
 
     fig, ax = plt.subplots(figsize=(9.2, 7.2))
     fig.patch.set_facecolor("#0B1220")
@@ -66,14 +72,16 @@ def draw_grid(
             )
 
             if position in explored_set and position not in {grid.start, *grid.exits}:
+                on_hazard = grid.hazard_type(position) is not None
                 ax.add_patch(
                     Rectangle(
                         (col + 0.10, y + 0.10),
                         0.80,
                         0.80,
-                        facecolor=CELL_COLORS["explored"],
-                        edgecolor="none",
-                        alpha=0.28,
+                        facecolor="none" if on_hazard else CELL_COLORS["explored"],
+                        edgecolor=CELL_COLORS["explored"] if on_hazard else "none",
+                        linewidth=2,
+                        alpha=0.85 if on_hazard else 0.28,
                         zorder=2,
                     )
                 )
@@ -86,7 +94,7 @@ def draw_grid(
         ax.plot(
             x_values,
             y_values,
-            color=CELL_COLORS["path"],
+            color=route_color,
             linewidth=5.5,
             alpha=0.92,
             solid_capstyle="round",
@@ -97,14 +105,16 @@ def draw_grid(
             y_values,
             s=42,
             facecolor="#DBEAFE",
-            edgecolor=CELL_COLORS["path"],
+            edgecolor=route_color,
             linewidth=1.4,
             zorder=6,
         )
 
     _draw_special_node(ax, grid, grid.start, "S", CELL_COLORS["start"])
     for index, exit_position in enumerate(grid.exits, start=1):
-        _draw_special_node(ax, grid, exit_position, f"E{index}", CELL_COLORS["exit"])
+        _draw_destination_node(ax, grid, exit_position, f"E{index}", CELL_COLORS["exit"])
+    if stairs_visible and grid.central_stairs is not None:
+        _draw_destination_node(ax, grid, grid.central_stairs, "CS", CELL_COLORS["stairs"])
 
     if current is not None:
         row, col = current
@@ -137,7 +147,7 @@ def draw_grid(
             col + 0.5,
             grid.rows - row - 0.5,
             "●",
-            color=CELL_COLORS["path"],
+            color=route_color,
             ha="center",
             va="center",
             fontsize=13,
@@ -147,14 +157,20 @@ def draw_grid(
 
     legend = [
         Patch(facecolor=CELL_COLORS["start"], label="Start"),
-        Patch(facecolor=CELL_COLORS["exit"], label="Exit"),
-        Line2D([0], [0], color=CELL_COLORS["path"], lw=4, label="Safe route"),
+        Patch(facecolor=CELL_COLORS["exit"], label="Emergency exit"),
+        Line2D([0], [0], color=route_color, lw=4, label="Risky route" if risk_level == "risky" else "Route"),
         Patch(facecolor=CELL_COLORS["explored"], alpha=0.35, label="Explored"),
         Patch(facecolor=CELL_COLORS["crowd"], label="Crowd · cost 3"),
         Patch(facecolor=CELL_COLORS["smoke"], label="Smoke · cost 8"),
         Patch(facecolor=CELL_COLORS["fire"], label="Fire · blocked"),
-        Patch(facecolor=CELL_COLORS["wall"], label="Wall"),
+        Patch(facecolor=CELL_COLORS["wall"], label="Wall / blocked"),
     ]
+    if stairs_visible and grid.central_stairs is not None:
+        legend.append(Patch(facecolor=CELL_COLORS["stairs"], label="CS · Central stairs"))
+    if any(grid.is_blocked(position) for position in grid.exits) or (
+        stairs_visible and grid.central_stairs is not None and grid.is_blocked(grid.central_stairs)
+    ):
+        legend.append(Patch(facecolor="none", edgecolor="#F43F5E", label="× · Blocked destination"))
     legend_obj = ax.legend(
         handles=legend,
         loc="upper center",
@@ -181,7 +197,7 @@ def draw_grid(
     for spine in ax.spines.values():
         spine.set_visible(False)
 
-    ax.set_title(title, loc="left", color="#F8FAFC", fontsize=15, weight="bold", pad=14)
+    ax.set_title(title, loc="left", color="#F8FAFC", fontsize=13, weight="bold", pad=14)
     ax.text(
         1.0,
         1.025,
@@ -206,6 +222,8 @@ def _draw_cell_label(ax, grid, position, col, y):
         label, color = "SM", "#0F172A"
     elif hazard == "fire":
         label, color = "F", "#FFFFFF"
+    elif hazard == "blocked":
+        label, color = "B", "#FFFFFF"
     else:
         return
 
@@ -222,7 +240,7 @@ def _draw_cell_label(ax, grid, position, col, y):
     )
 
 
-def _draw_special_node(ax, grid, position, label, color):
+def _draw_special_node(ax, grid, position, label, color, *, label_y=0.5):
     row, col = position
     y = grid.rows - row - 1
     ax.add_patch(
@@ -238,7 +256,7 @@ def _draw_special_node(ax, grid, position, label, color):
     )
     ax.text(
         col + 0.5,
-        y + 0.5,
+        y + label_y,
         label,
         color="#FFFFFF",
         ha="center",
@@ -246,4 +264,26 @@ def _draw_special_node(ax, grid, position, label, color):
         fontsize=10,
         weight="bold",
         zorder=8,
+    )
+
+
+def _draw_destination_node(ax, grid, position, label, color):
+    """Keep a destination's smoke/fire/block visible underneath its marker."""
+    hazard = grid.hazard_type(position)
+    blocked = grid.is_blocked(position)
+    if not hazard and not blocked:
+        # Keep E/CS labels below the traveler marker at the destination.
+        _draw_special_node(ax, grid, position, label, color, label_y=0.2)
+        return
+    row, col = position
+    y = grid.rows - row - 1
+    ax.add_patch(Rectangle(
+        (col + 0.08, y + 0.08), 0.84, 0.84,
+        fill=False, edgecolor="#F43F5E" if blocked else color,
+        linewidth=3, zorder=7,
+    ))
+    ax.text(
+        col + 0.5, y + 0.16, f"{label} ×" if blocked else label,
+        ha="center", va="center", color="#FFFFFF", fontsize=8, weight="bold",
+        bbox={"facecolor": "#0F172A", "edgecolor": "none", "pad": 1.5}, zorder=8,
     )

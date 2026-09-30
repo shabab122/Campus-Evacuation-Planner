@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from time import perf_counter
-
 import pandas as pd
 
 from .astar import a_star
 from .bfs import bfs
-from .cost import calculate_path_cost
 from .dfs import dfs
 from .greedy import greedy_best_first
+from .routing import plan_evacuation
 from .ucs import ucs
 
 
@@ -30,38 +28,12 @@ def run_algorithm(name, grid, *, include_trace: bool = False):
     if name not in ALGORITHMS:
         raise ValueError(f"Unknown algorithm: {name}")
 
-    started = perf_counter()
-    output = ALGORITHMS[name](grid, return_trace=include_trace)
-    duration_ms = (perf_counter() - started) * 1000
-
-    if name in {"BFS", "DFS"}:
-        if include_trace:
-            path, explored, exploration_order = output
-        else:
-            path, explored = output
-            exploration_order = []
-        cost = calculate_path_cost(grid, path)
-    else:
-        if include_trace:
-            path, cost, explored, exploration_order = output
-        else:
-            path, cost, explored = output
-            exploration_order = []
-
-    normalized_path = path or []
-    selected_exit = normalized_path[-1] if normalized_path else None
-    result = {
-        "algorithm": name,
-        "route_found": bool(normalized_path),
-        "selected_exit": selected_exit,
-        "path": normalized_path,
-        "path_steps": max(len(normalized_path) - 1, 0),
-        "route_cost": cost,
-        "nodes_explored": explored,
-        "execution_ms": round(duration_ms, 4),
-    }
-    if include_trace:
-        result["exploration_order"] = exploration_order
+    result = plan_evacuation(
+        ALGORITHMS[name], grid,
+        weighted_output=name not in {"BFS", "DFS"},
+        include_trace=include_trace,
+    )
+    result["algorithm"] = name
     return result
 
 
@@ -70,3 +42,25 @@ def compare_algorithms(grid, *, include_trace: bool = False):
         run_algorithm(name, grid, include_trace=include_trace)
         for name in ALGORITHMS
     ]
+
+
+def results_dataframe(results):
+    rows = [
+        {
+            "Algorithm": result["algorithm"],
+            "Route Found": "Yes" if result["route_found"] else "No",
+            "Selected Exit": str(result["selected_exit"]) if result["selected_exit"] else "-",
+            "Destination Type": (result["destination_type"] or "unavailable").replace("_", " "),
+            "Selected Destination": str(result["selected_destination"]) if result["selected_destination"] is not None else "-",
+            "Fallback Used": "Yes" if result["fallback_used"] else "No",
+            "Route Risk": {"safe": "Safe (model)", "risky": "Risky", "unavailable": "No route"}[result["risk_level"]],
+            "Smoke Cells": result["hazard_exposure"]["smoke"],
+            "Crowd Cells": result["hazard_exposure"]["crowd"],
+            "Path Steps": result["path_steps"],
+            "Route Cost": result["route_cost"],
+            "Nodes Explored": result["nodes_explored"],
+            "Execution (ms)": result["execution_ms"],
+        }
+        for result in results
+    ]
+    return pd.DataFrame(rows)

@@ -13,5 +13,25 @@
     "crowd": [[3, 1]],
     "smoke": [[0, 2]],
     "fire": [[0, 3]]
+  },
+  "All exit corridors blocked (stairs fallback)": {
+    "crowd": [[0, 1]],
+    "smoke": [[0, 2]],
+    "fire": [[0, 3], [4, 4], [5, 4]]
+  },
+  "Both emergency exits on fire": {
+    "crowd": [],
+    "smoke": [],
+    "fire": [[0, 5], [5, 5]]
+  },
+  "Risky stairs fallback": {
+    "crowd": [[3, 1]],
+    "smoke": [[2, 3]],
+    "fire": [[0, 5], [5, 5]]
+  },
+  "No traversable destination": {
+    "crowd": [],
+    "smoke": [],
+    "fire": [[0, 5], [5, 5], [2, 3]]
   }
 }
