@@ -1,88 +1,31 @@
 # Campus Emergency Evacuation Route Planner
 
-**AI Lab · Week 3 final development · Emergency exits with central-stairs fallback**
+**UIU AI Lab Project · Week 3 · Central-Stairs Fallback**
 
-A campus-floor simulation that compares five AI search algorithms under smoke, crowd, fire, and blocked corridors. The planner first searches for an emergency exit. If **every emergency exit is unreachable**, it reveals the floor's central staircase and uses the **same selected algorithm** to find a route there.
+A campus evacuation simulation using **A\*, BFS, DFS, UCS, and Greedy Best First Search**. The planner compares routes through a floor grid containing smoke, crowds, fire, and blocked corridors, with live search visualization in Streamlit.
 
-This build preserves the Week-2 Streamlit dashboard, search animation, route movement, algorithm comparison, and CSV export. Week 3 adds one focused feature: a central-stairs fallback with an honest route-risk status.
+Week 3 addresses a specific campus scenario: **when every emergency exit is unreachable, reveal the central stairs and search for a route there using the same algorithm**. The returned route is labelled safe in the model or risky; fire and blocked cells remain impassable.
 
-> **Map assumption:** The supplied 6 × 6 grid is a synthetic model inspired by the UIU campus scenario, not a surveyed UIU floor plan. Central stairs are placed at `(2, 3)` for this demonstration. Replace that coordinate and the map with verified building information before making any real-world interpretation. Reaching the stairs on this floor does not demonstrate that onward evacuation is possible.
+![A* central-stairs fallback after both exit corridors become unreachable](docs/images/stairs-fallback.png)
 
-## What the system does
+> The supplied 6 × 6 grid is a synthetic demonstration inspired by the UIU campus problem, not a surveyed UIU floor plan. Central stairs are placed at `(2, 3)`. The simulation ends at the stairs on the current floor; it does not establish that onward evacuation is possible. Hazards are configured snapshots; “live” refers to search and route animation.
 
-- Searches all traversable emergency exits before considering the staircase.
-- Activates the fallback when exits themselves are fire/blocked **or** their access corridors are disconnected.
-- Keeps central stairs hidden on the grid during normal exit search; shows **CS** when fallback search begins.
-- Restarts planning from the original starting cell, using the unchanged hazard map and selected algorithm.
-- Allows smoke/crowd routes while clearly marking their risk.
-- Never traverses fire, walls, or custom blocked cells.
-- Reports **no traversable route** if the staircase is also blocked or unreachable.
-- Animates emergency-exit search, staircase search when needed, and then movement along the final route.
-- Records destination, risk, cost, search effort, timing, and both search stages.
-- Unlocks comparison only after all five algorithms complete on the same map configuration.
+## Features
 
-## Destination policy
-
-```mermaid
-flowchart TD
-    A["Scenario and starting location"] --> B["Search emergency exits"]
-    B --> C{"Exit route found?"}
-    C -->|Yes| D["Show exit route and risk"]
-    C -->|No| E["Reveal central stairs"]
-    E --> F["Search stairs from original start"]
-    F --> G{"Stairs route found?"}
-    G -->|Yes| H["Show stairs route and risk"]
-    G -->|No| I["Show no traversable route"]
-```
-
-**Important details:**
-
-1. A reachable emergency exit keeps priority even if its route contains smoke/crowd and the staircase is closer. Fallback is triggered by **unreachability**, not distance or a high route cost.
-2. The search animation shows planning. The evacuee does not first walk into a failed exit corridor and then teleport back. Movement starts only after the final route is known.
-3. A blocked destination is removed from search targets. If all targets in a stage are blocked, that stage finishes immediately with zero node expansions.
-4. The staircase is a separate fallback destination; it is not silently added to the normal emergency-exit list.
-
-## Movement and risk model
-
-Coordinates use **zero-based `(row, column)`** indexing. Movement is up, down, left, or right; diagonal moves are excluded.
-
-| Cell | Entry cost | Traversable? | Route status when used |
-|---|---:|:---:|---|
-| Normal corridor | 1 | Yes | Safe in the model |
-| Crowd | 3 | Yes | Risky |
-| Smoke | 8 | Yes | Risky |
-| Fire | — | No | Never part of a route |
-| Wall / custom block | — | No | Never part of a route |
-
-Route cost is the sum of the cells **entered after the starting cell**. Smoke/crowd exposure includes the destination cell, so smoky stairs cannot be reported as a safe route.
-
-| Result | Meaning | Presentation |
-|---|---|---|
-| **Safe (model)** | The returned route contains no smoke/crowd or elevated-cost cells | Blue route; explicit status |
-| **Risky** | The returned route includes smoke/crowd or elevated-cost cells | Orange route; exposure warning |
-| **No route** | Neither an emergency exit nor the configured staircase is traversable from the start | Error message; no fabricated path or cost |
-
-“Safe (model)” is a classification of the modelled cells, not a real-world building-safety guarantee. A risky route is displayed for algorithm study; this simulation does not establish that walking through smoke is safe.
-
-## Algorithms
-
-| Algorithm | Search priority | Guarantee in this grid model |
-|---|---|---|
-| A* | Accumulated entry cost + nearest-target Manhattan distance | Minimum weighted route cost for the active target set |
-| UCS | Accumulated entry cost | Minimum weighted route cost for the active target set |
-| BFS | Number of moves | Fewest moves; may cross costly smoke/crowd |
-| DFS | Depth-first traversal | Finds a reachable target; no shortest/cost guarantee |
-| Greedy Best First | Nearest-target Manhattan distance | Heuristic-guided route; no shortest/cost guarantee |
-
-The existing A* uses `f(n) = g(n) + h(n)` on **weighted terrain**. It does not inflate the heuristic with a weight greater than one. Manhattan distance remains an admissible estimate because every traversable move costs at least 1 and movement is orthogonal.
-
-All five algorithms use the same fallback policy. A* and UCS minimize the sum of the configured costs, which is a simplified risk proxy; even they may choose a hazardous route if it has a lower total cost. The risk label always describes the **route actually returned**.
+- Multiple emergency exits and configurable central stairs.
+- Exit-first routing, with stairs revealed only when fallback begins.
+- Weighted smoke/crowd costs and explicit route-risk reporting.
+- Five algorithms using one shared destination policy.
+- Animated node exploration and movement along the final route.
+- Comparison unlocked after all five algorithms run on the same configuration.
+- Comparison charts and CSV export with destination, risk, cost, steps, search effort, and timing.
+- Clear validation errors and no-route handling, including blocked stairs.
 
 ## Quick start
 
-Run commands from the extracted project folder. Python **3.10+** is required; this build was validated on Python 3.12.14.
+Extract the ZIP and open a terminal in the project folder. Use **Python 3.10+**.
 
-### Ubuntu / Linux / macOS
+### Linux / macOS
 
 ```bash
 python3 -m venv venv
@@ -101,9 +44,7 @@ py -m venv venv
 .\venv\Scripts\python.exe -m streamlit run app.py
 ```
 
-Using the virtual environment's Python directly on Windows avoids activation-policy changes. Streamlit normally serves the dashboard at [http://localhost:8501](http://localhost:8501).
-
-The distribution excludes machine-specific virtual environments and caches. Create a fresh virtual environment instead of copying the old one across machines.
+Using the environment's Python directly on Windows avoids activation-policy changes. Open [http://localhost:8501](http://localhost:8501) when Streamlit starts. Create a fresh environment on each machine; the distribution excludes virtual environments and caches.
 
 ### Command-line demonstration
 
@@ -113,130 +54,146 @@ python main.py --scenario "Risky stairs fallback" --algorithm "UCS"
 python main.py --scenario "No traversable destination"
 ```
 
-The default CLI demonstration uses the corridor-blocking scenario from the supplied video and prints the selected fallback destination, route, risk, cost, and total expansions.
+The default CLI scenario blocks both exit corridors. It prints the route, destination, risk, cost, and total node expansions using the same routing policy as the dashboard.
 
-## Week-3 demonstration
+## How the stairs fallback works
 
-Use **Room A** as the start and **A*** first. Select **Fast** to see the staged animation, or **Instant** for immediate results.
-
-| Scenario | Expected A* behavior from Room A |
-|---|---|
-| Normal conditions | Emergency exit route; CS stays hidden |
-| Smoke near north exit | Weighted exit route; no fallback while an exit is reachable |
-| North corridor blocked | Uses a reachable emergency exit |
-| All exit corridors blocked (stairs fallback) | Matches the supplied video's fire layout; reveals CS and returns a route there |
-| Both emergency exits on fire | Shows blocked exit markers and searches CS |
-| Risky stairs fallback | Returns a route to smoky CS with an orange route and risk warning |
-| No traversable destination | Exits and stairs are on fire; reports no traversable route |
-
-For the supplied video layout, fire occupies `(0,3)`, `(4,4)`, and `(5,4)`. Both emergency-exit corridors are disconnected. A* from Room A returns:
-
-```text
-(0,0) → (1,0) → (2,0) → (3,0) → (3,1) → (3,2) → (2,2) → (2,3)
-Destination: central stairs
-Path steps: 7
-Route cost: 7
-Route risk: safe in the model
+```mermaid
+flowchart TD
+    A["Search emergency exits"] --> B{"Exit route found?"}
+    B -->|Yes| C["Show exit route and risk"]
+    B -->|No| D{"Central stairs configured?"}
+    D -->|No| E["Report no traversable route"]
+    D -->|Yes| F["Reveal stairs and search from start"]
+    F --> G{"Stairs route found?"}
+    G -->|Yes| H["Show stairs route and risk"]
+    G -->|No| E
 ```
 
-Algorithm choices can produce different routes and risks. In this particular layout, BFS and Greedy choose a shorter, smoke-containing route; their results are correctly labelled risky.
+1. Search all traversable emergency exits with the selected algorithm.
+2. If none can be reached, reveal **CS** and search the staircase from the **original start**, with the same hazards and algorithm.
+3. Classify the actual returned route, including hazards on the destination.
+4. If the stairs are also blocked or unreachable, report **no traversable route** without fabricating a path.
 
-Starting locations occupied by a preset hazard are excluded from the start dropdown. For example, Cafeteria `(4,4)` is unavailable in the video's corridor-fire scenario. Custom hazards on the selected starting cell produce a clear validation error rather than an invalid route.
+A reachable emergency exit keeps priority even if its route is risky or the stairs are closer. Fallback is triggered by **unreachability**, not route cost. Stairs are a separate fallback destination and are never silently added to the normal exit list.
 
-### Comparison and custom hazards
+The two search animations show planning. The traveler moves only after a final route is available. If all destinations in a stage are blocked, that stage finishes immediately with zero node expansions. Maps without a staircase remain supported and correctly report that it is not configured when exits fail.
 
-1. Run each algorithm individually, or click **Run Remaining for Comparison**.
-2. Comparison becomes available at **5/5 completed**, including algorithms that correctly return no route.
-3. The table and CSV include destination type/coordinate, fallback status, route risk, smoke/crowd counts, path steps, cost, total expansions, and execution time.
-4. Changing scenario, starting location, or any custom hazard resets results. Algorithm and playback-speed changes preserve results for the same experiment.
-5. Add custom hazards using `row,column; row,column`, for example fire on both exits: `0,5; 5,5`. The **Blocked cells** field can also block exits or stairs.
+## Movement, costs, and risk
 
-Route-cost charts omit unavailable routes rather than treating a missing cost as zero. Node expansions and execution time include **both** the failed exit search and the fallback search. A cell expanded in each stage is counted once per stage, not once globally. Timing excludes animation and should not be interpreted as a robust benchmark from a single tiny-grid run.
+Coordinates are zero-based **`(row, column)`**. Movement is up, down, left, or right.
 
-## Map configuration
+| Cell | Entry cost | Traversable? |
+|---|---:|:---:|
+| Normal corridor | 1 | Yes |
+| Crowd | 3 | Yes |
+| Smoke | 8 | Yes |
+| Fire | — | No |
+| Wall / blocked cell | — | No |
 
-`data/map.json` owns the staircase location:
+Route cost sums the cells entered **after the starting cell**. Risk classification examines the complete route, including its destination.
 
-```json
-{
-  "exits": [[0, 5], [5, 5]],
-  "central_stairs": [2, 3]
-}
-```
+| Status | Meaning | Display |
+|---|---|---|
+| **Safe (model)** | No smoke, crowd, or elevated-cost cells on the returned route | Blue route |
+| **Risky** | Smoke, crowd, or elevated-cost cells on the returned route | Orange route and warning |
+| **No route** | No reachable emergency exit or configured staircase | Error message; no route or numeric cost |
 
-The snippet shows the destination fields only; retain the full file's dimensions, start, locations, and grid. The staircase must be in bounds, walkable in the base map, and separate from emergency exits. A hazard overlay can subsequently block it. Legacy maps without `central_stairs` still load; if exits fail, they report that no staircase is configured.
+Costs are a simplified risk proxy. A lower-cost route is not a building-safety certification; a risky route is shown for algorithm analysis, not as evidence that walking through smoke is safe.
 
-`data/scenarios.json` supports `crowd`, `smoke`, `blocked`, and `fire` coordinate lists. Fire takes precedence over other preset overlays. Custom overlapping hazards are rejected with a validation message.
+## Algorithms
 
-## Preview
+| Algorithm | Search priority | Guarantee in this model |
+|---|---|---|
+| A* | Accumulated cost + nearest-target Manhattan distance | Minimum weighted route cost for the active targets |
+| UCS | Accumulated cost | Minimum weighted route cost for the active targets |
+| BFS | Number of moves | Fewest moves; may cross costly smoke/crowd |
+| DFS | Depth-first traversal | Reachability; no shortest-path or cost guarantee |
+| Greedy Best First | Nearest-target Manhattan distance | Heuristic-guided route; no optimality guarantee |
 
-The following figures are generated from the included map and A* results.
+A* uses **`f(n) = g(n) + h(n)`** with weighted terrain costs. It does not multiply the heuristic by a weight greater than one. The minimum Manhattan distance to an active target is admissible because movement is orthogonal and every traversable move costs at least 1.
 
-### Central-stairs fallback after exit corridors fail
+All five search kernels use the same shared fallback policy. A* and UCS minimize configured cost, so a hazardous route can still win when its total cost is lower. The risk label describes the route actually returned. UCS implements the accumulated-cost search used for the optimal-cost baseline; there is no separate Dijkstra implementation in this build.
 
-![A* route to central stairs avoiding the supplied fire layout](docs/images/stairs-fallback.png)
+## Demo scenarios
 
-### Risky fallback to smoky stairs
+Start with **Room A → A\***. Choose **Fast** for animation or **Instant** for immediate results.
 
-![Risky route with smoke on the central-stairs destination](docs/images/risky-stairs-route.png)
-
-### No traversable destination
-
-![Fire-blocked exits and central stairs with no fabricated route](docs/images/no-traversable-route.png)
-
-## Project structure
-
-| Path | Responsibility |
+| Scenario | Expected behavior from Room A |
 |---|---|
-| `app.py` | Streamlit controls, staged animation, result state, comparison, CSV |
-| `main.py` | CLI demonstration using the same routing policy |
-| `src/routing.py` | Shared exit-first / stairs-second policy, stage metrics, risk classification |
-| `src/grid.py` | Map validation, movement costs, fire/block handling, staircase metadata |
-| `src/scenarios.py` | Scenario loading, named starts, coordinate parsing, custom overlays |
-| `src/astar.py`, `src/ucs.py` | Weighted-cost search implementations |
-| `src/bfs.py`, `src/dfs.py`, `src/greedy.py` | Additional search implementations |
+| Normal conditions | Emergency exit route; CS hidden |
+| Smoke near north exit | Weighted exit search; no fallback while an exit is reachable |
+| North corridor blocked | Route to a reachable emergency exit |
+| All exit corridors blocked (stairs fallback) | Both exit corridors disconnected; CS revealed and reached |
+| Both emergency exits on fire | Blocked exit markers; search central stairs |
+| Risky stairs fallback | Smoky stairs reached with an orange route and risk warning |
+| No traversable destination | Exits and stairs on fire; no traversable route |
+
+In the corridor-blocking demonstration, fire occupies `(0,3)`, `(4,4)`, and `(5,4)`. A* from Room A reaches stairs at `(2,3)` in **7 moves**, with **cost 7** and no smoke/crowd exposure. BFS and Greedy choose a shorter smoke-containing route in this layout and are correctly labelled risky.
+
+### Run a comparison
+
+1. Run each algorithm, or click **Run Remaining for Comparison**.
+2. Comparison unlocks at **5/5**, including valid no-route results.
+3. Inspect destination, fallback status, risk, smoke/crowd counts, steps, cost, node expansions, and execution time; download the CSV.
+4. Change the scenario, start, or custom hazards to begin a new experiment. Algorithm and playback-speed changes preserve results for the same experiment.
+
+Search metrics include both stages when fallback is used. A cell explored in each stage counts once per stage. Timing excludes playback and a single tiny-grid run is not a robust performance benchmark. Missing route costs are omitted from cost charts instead of plotted as zero.
+
+### Edit hazards
+
+Enter coordinates as `row,column; row,column`. For example, enter **`0,5; 5,5`** in the Fire field to block both exits. Blocked cells can also obstruct exits or stairs.
+
+Preset hazards remove affected rooms from the start dropdown. Custom hazards on the selected start, outside the map, on permanent barriers, or overlapping another custom hazard are rejected. Hazard updates are atomic: a rejected batch preserves the previous grid and hazards.
+
+## Configuration and architecture
+
+`data/map.json` stores dimensions, base grid, named locations, exits, and the optional `central_stairs` coordinate. The staircase must be in bounds, walkable in the base map, and distinct from emergency exits; a scenario may subsequently block it.
+
+`data/scenarios.json` accepts `crowd`, `smoke`, `blocked`, and `fire` coordinate lists. Preset overlays apply in that order, so fire wins overlapping presets. Base-map walls and permanent fire cannot be overwritten by hazard overlays.
+
+| File / directory | Responsibility |
+|---|---|
+| `app.py` | Streamlit controls, animation, result state, comparison, CSV |
+| `main.py` | CLI demonstration |
+| `src/routing.py` | Exit-first / stairs-second policy, stage metrics, risk classification |
+| `src/grid.py`, `src/scenarios.py` | Map validation, movement, scenario and custom hazards |
+| `src/astar.py`, `src/ucs.py` | Weighted-cost search |
+| `src/bfs.py`, `src/dfs.py`, `src/greedy.py` | Other search algorithms |
 | `src/heuristic.py`, `src/cost.py` | Manhattan estimates and path cost |
-| `src/evaluation.py` | Algorithm registry, normalized results, comparison data |
-| `src/visualization.py` | Map, conditional CS marker, hazard-visible destination markers, route colors |
-| `data/` | Floor map and emergency scenarios |
-| `tests/` | Regression, routing, validation, animation, and dashboard integration tests |
-| `docs/images/` | Generated figures for this README |
-| `WEEK2_TEAM_GUIDE.md` | Retained Week-2 development reference |
-| `WEEK3_TEAM_GUIDE.md` | Focused Week-3 integration and review guide |
+| `src/evaluation.py` | Algorithm registry and comparison data |
+| `src/visualization.py` | Map, conditional CS marker, hazards, route colors |
+| `data/` | Floor map and scenarios |
+| `tests/` | Algorithm, fallback, validation, visualization, and dashboard tests |
+| `docs/images/` | Generated route illustrations |
+| `docs/VALIDATION.md` | Final inspection findings, fixes, and test evidence |
 
-The original proposal document and presentation are retained as prior project materials; their content has not been rewritten for Week 3.
+The UI and CLI call the shared routing policy, which supplies each unchanged search algorithm with its current target set. Visualization and evaluation consume the returned route and stage results.
 
 ## Validation
+
+**256 tests passed** on 3 October 2026, using Python 3.12.14. Run them with:
 
 ```bash
 python -m pytest -q
 ```
 
-**Verified result: 243 tests passed.** Coverage includes:
+Coverage includes all five algorithms across the seven scenarios and four named locations; independent reachability and path checks; A* / UCS cost agreement; blocked, unreachable, or missing stairs; hazardous destinations; animation and CS visibility; Streamlit comparison/reset behavior; and rejected hazard batches preserving state.
 
-- The original six Week-2 regression tests.
-- All five algorithms across all supplied scenarios and named starts, with invalid starts explicitly rejected.
-- An independent flood-fill oracle for reachability, destination priority, route continuity, and fire/block avoidance.
-- A* / UCS weighted-cost agreement for primary and fallback routes.
-- Directly burning exits, corridor-isolated exits, missing/blocked/unreachable stairs, and a zero-step stairs route.
-- Smoke on a destination, risk colours, blocked-destination markers, and CS visibility through both animation stages.
-- Streamlit dashboard interactions: selected/all-algorithm runs, comparison locking/unlocking, invalid input, state reset, unavailable starts, and missing route costs.
+Validated dependency versions: **Streamlit 1.64.0 · pandas 2.3.3 · Matplotlib 3.11.2 · pytest 8.4.2**. `requirements.txt` retains compatible version ranges. See [the validation record](docs/VALIDATION.md) for the final review details.
 
-Validated dependency versions: Streamlit 1.64.0, pandas 2.3.3, Matplotlib 3.11.2, and pytest 8.4.2. `requirements.txt` retains the project's existing compatible version ranges.
+## Development history
 
-## Development history and team workflow
-
-| Phase | Development focus |
+| Phase | Delivered work |
 |---|---|
-| Week 1 | Grid-map foundation, A* and BFS, initial visualization |
-| Week 2 | Multiple exits, hazards and weighted costs, five algorithms, Streamlit, live animation, comparison and CSV |
-| Week 3 | Conditional central-stairs fallback, route-risk reporting, destination blocking, scenario validation and regression coverage |
+| Week 1 | Grid foundation, A* and BFS, initial visualization |
+| Week 2 | Multiple exits, hazards, five algorithms, Streamlit animation, comparison and CSV |
+| Week 3 | Conditional stairs fallback, route-risk reporting, destination blocking, validation and regression coverage |
 
-Four separate Week-3 branches are **not required** for one integrated feature. A practical workflow is one team-leader feature branch, review/testing by the other members, and one pull request into `main`. Use separate branches only when members make independent code/documentation changes. Attribute contributions to the work actually performed; branch count alone does not show contribution.
+The agreed Week 3 scope is complete. See [WEEK3_TEAM_GUIDE.md](WEEK3_TEAM_GUIDE.md) for integration and demo steps. One feature branch with team review is sufficient for this integrated change; separate branches are useful for independent edits.
 
-## Scope and limitations
+[WEEK2_TEAM_GUIDE.md](WEEK2_TEAM_GUIDE.md) and the original proposal document are historical planning references. The presentation has been aligned with the five-algorithm implementation and Week 3 fallback; this README describes the delivered behavior.
 
-- This is a **single-floor, static-hazard academic simulation**. It does not model fire spreading over time, people moving concurrently, stair capacity, other floors, or a verified route to an outdoor assembly area.
-- CS is a fallback waypoint on the current floor. Its availability here does not confirm that the staircase or lower floors are usable in a real emergency.
-- Risk labels reflect the configured cells and costs. Real hazards require building-specific assessment and emergency procedures.
-- No additional algorithms, external services, or deployment have been introduced in Week 3.
+## Model boundaries
+
+This is a **single-floor academic simulation with static hazards**. Fire spread, live sensors, concurrent evacuees, stair capacity, other floors, and outdoor assembly routes are outside the agreed scope. A real campus application needs verified floor plans and building-specific validation beyond this demonstration.
